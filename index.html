@@ -1,0 +1,193 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Campus Grievance Portal (Lo-Fi Prototype)</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    .screen { display: none; border: 1px solid #999; padding: 15px; margin-bottom: 20px; }
+    .visible { display: block; }
+    button { margin: 5px 0; }
+    input, select, textarea { display: block; margin: 6px 0; width: 100%; max-width: 400px; }
+    .complaint { border: 1px dashed #aaa; padding: 8px; margin: 6px 0; }
+    .status { padding: 2px 6px; border-radius: 4px; border: 1px solid #ccc; }
+    .checkbox-label { display:block; margin:10px 0; }
+  </style>
+</head>
+<body>
+
+<h2>Campus Grievance Portal — Lo-Fi Prototype (After User Study)</h2>
+
+<!-- LOGIN -->
+<div id="login" class="screen visible">
+  <h3>Login</h3>
+  <label>Username <input id="loginUser"></label>
+  <label>Password <input id="loginPass" type="password"></label>
+  <button onclick="login()">Login</button>
+  <button onclick="show('signup')">Sign Up</button>
+  <p>Demo student: pratul / 123 <br> Demo admin: admin / admin</p>
+</div>
+
+<!-- SIGNUP -->
+<div id="signup" class="screen">
+  <h3>Create Account</h3>
+  <label>Username <input id="suUser"></label>
+  <label>Password <input id="suPass" type="password"></label>
+  <select id="suRole">
+    <option value="student">Student</option>
+    <option value="admin">Admin</option>
+  </select>
+  <button onclick="signup()">Create</button>
+  <button onclick="show('login')">Cancel</button>
+</div>
+
+<!-- STUDENT DASHBOARD -->
+<div id="student" class="screen">
+  <h3>Student Dashboard</h3>
+  <button onclick="show('newComplaint')">Submit New Complaint</button>
+  <h4>Your Complaints</h4>
+  <div id="myComplaints"></div>
+  <button onclick="logout()">Logout</button>
+</div>
+
+<!-- NEW COMPLAINT -->
+<div id="newComplaint" class="screen">
+  <h3>Submit Complaint</h3>
+  <label>Title <input id="cTitle"></label>
+  <label>Category
+    <select id="cCat">
+      <option>Academic</option>
+      <option>Hostel</option>
+      <option>Administration</option>
+      <option>Other</option>
+    </select>
+  </label>
+  <label>Description <textarea id="cDesc"></textarea></label>
+
+  <!-- FIXED: Anonymous option on its own line -->
+  <label class="checkbox-label">
+    <input type="checkbox" id="cAnon"> Submit anonymously
+  </label>
+
+  <!-- FIXED: File input with spacing -->
+  <label>Attach file/photo <input type="file" id="cFile"></label>
+
+  <button onclick="submitComplaint()">Submit</button>
+  <button onclick="show('student')">Cancel</button>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="admin" class="screen">
+  <h3>Admin Dashboard</h3>
+  <div id="allComplaints"></div>
+  <button onclick="logout()">Logout</button>
+</div>
+
+<script>
+let users = [
+  {username:"pratul", password:"123", role:"student"},
+  {username:"admin", password:"admin", role:"admin"}
+];
+let complaints = [];
+let currentUser = null;
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('visible'));
+  document.getElementById(id).classList.add('visible');
+  if(id==="student") renderMyComplaints();
+  if(id==="admin") renderAllComplaints();
+}
+
+function login(){
+  let u = document.getElementById('loginUser').value;
+  let p = document.getElementById('loginPass').value;
+  let found = users.find(x=>x.username===u && x.password===p);
+  if(!found){ alert("Invalid"); return; }
+  currentUser = found;
+  if(found.role==="student") show('student');
+  else show('admin');
+}
+
+function signup(){
+  let u = document.getElementById('suUser').value;
+  let p = document.getElementById('suPass').value;
+  let r = document.getElementById('suRole').value;
+  if(users.find(x=>x.username===u)){ alert("User exists"); return; }
+  users.push({username:u,password:p,role:r});
+  alert("Created, login now");
+  show('login');
+}
+
+function logout(){ currentUser=null; show('login'); }
+
+function submitComplaint(){
+  let title=document.getElementById('cTitle').value;
+  let cat=document.getElementById('cCat').value;
+  let desc=document.getElementById('cDesc').value;
+  let isAnon=document.getElementById('cAnon').checked;
+  let file=document.getElementById('cFile').files[0];
+  let id="CMP-"+Math.random().toString(36).substring(2,8).toUpperCase();
+  let attach=file?file.name:"None";
+  complaints.push({
+    id,title,cat,desc,
+    by:isAnon?"Anonymous":currentUser.username,
+    status:"Pending",
+    assigned:null,
+    note:"",
+    attachment:attach,
+    createdAt:new Date().toLocaleString()
+  });
+  alert("Complaint submitted. Reference ID: "+id);
+  show('student');
+}
+
+function renderMyComplaints(){
+  let list=document.getElementById('myComplaints');
+  list.innerHTML="";
+  let mine=complaints.filter(c=>c.by===currentUser.username || (c.by==="Anonymous" && currentUser.role==="student"));
+  if(mine.length===0){ list.innerHTML="No complaints yet"; return; }
+  mine.forEach(c=>{
+    let div=document.createElement('div');
+    div.className="complaint";
+    div.innerHTML=`<b>${c.title}</b> [${c.cat}]<br>
+      Status: <span class="status">${c.status}</span><br>
+      Ref: ${c.id}<br>
+      Created: ${c.createdAt}<br>
+      Attachment: ${c.attachment}<br>
+      Admin note: ${c.note||"None"}`;
+    list.appendChild(div);
+  });
+}
+
+function renderAllComplaints(){
+  let list=document.getElementById('allComplaints');
+  list.innerHTML="";
+  if(complaints.length===0){ list.innerHTML="No complaints"; return; }
+  complaints.forEach((c,i)=>{
+    let div=document.createElement('div');
+    div.className="complaint";
+    div.innerHTML=`<b>${c.title}</b> by ${c.by} [${c.cat}]<br>
+      Desc: ${c.desc}<br>
+      Status: <span class="status">${c.status}</span><br>
+      Ref: ${c.id}<br>
+      Created: ${c.createdAt}<br>
+      Attachment: ${c.attachment}<br>
+      Note: ${c.note||"None"}<br>
+      <label>Assign to <input id="ass${i}" placeholder="Dept"></label>
+      <label>Admin note <input id="note${i}" placeholder="Add note"></label>
+      <button onclick="updateComplaint(${i})">Update</button>`;
+    list.appendChild(div);
+  });
+}
+
+function updateComplaint(i){
+  let ass=document.getElementById("ass"+i).value;
+  let note=document.getElementById("note"+i).value;
+  complaints[i].status="Resolved";
+  complaints[i].assigned=ass||null;
+  complaints[i].note=note||complaints[i].note;a
+  renderAllComplaints();
+}
+</script>
+</body>
+</html>
